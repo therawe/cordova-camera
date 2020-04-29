@@ -202,18 +202,25 @@ static NSString* toBase64(NSData* data) {
             [[self pickerController] setPickerPopoverController:nil];
         }
 
-        if ([self popoverSupported] && (pictureOptions.sourceType != UIImagePickerControllerSourceTypeCamera)) {
-            if (cameraPicker.pickerPopoverController == nil) {
-                cameraPicker.pickerPopoverController = [[NSClassFromString(@"UIPopoverController") alloc] initWithContentViewController:cameraPicker];
-            }
-            [self displayPopover:pictureOptions.popoverOptions];
-            self.hasPendingOperation = NO;
-        } else {
-            cameraPicker.modalPresentationStyle = UIModalPresentationCurrentContext;
+        cameraPicker.modalPresentationStyle = UIModalPresentationCurrentContext;
             [self.viewController presentViewController:cameraPicker animated:YES completion:^{
                 self.hasPendingOperation = NO;
             }];
-        }
+
+        // BUG FIX - iPad has popoverSupported = true but popover fails. 
+        //           Moved else from below to above to only use current context presentation style
+        // if ([self popoverSupported] && (pictureOptions.sourceType != UIImagePickerControllerSourceTypeCamera)) {
+        //     if (cameraPicker.pickerPopoverController == nil) {
+        //         cameraPicker.pickerPopoverController = [[NSClassFromString(@"UIPopoverController") alloc] initWithContentViewController:cameraPicker];
+        //     }
+        //     [self displayPopover:pictureOptions.popoverOptions];
+        //     self.hasPendingOperation = NO;
+        // } else {
+        //     cameraPicker.modalPresentationStyle = UIModalPresentationCurrentContext;
+        //     [self.viewController presentViewController:cameraPicker animated:YES completion:^{
+        //         self.hasPendingOperation = NO;
+        //     }];
+        // }
     });
 }
 
@@ -511,8 +518,17 @@ static NSString* toBase64(NSData* data) {
 
 - (CDVPluginResult*)resultForVideo:(NSDictionary*)info
 {
-    NSString* moviePath = [[info objectForKey:UIImagePickerControllerMediaURL] absoluteString];
-    return [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:moviePath];
+    NSString* moviePath = [[info objectForKey:UIImagePickerControllerMediaURL] path];
+
+    NSArray* spliteArray = [moviePath componentsSeparatedByString: @"/"];
+    NSString* lastString = [spliteArray lastObject];
+    NSError *error;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *documentsDirectory = [NSHomeDirectory() stringByAppendingPathComponent:@"tmp"];
+    NSString *filePath = [documentsDirectory stringByAppendingPathComponent:lastString];
+    [fileManager copyItemAtPath:moviePath toPath:filePath error:&error];
+
+    return [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:filePath];
 }
 
 - (void)imagePickerController:(UIImagePickerController*)picker didFinishPickingMediaWithInfo:(NSDictionary*)info
